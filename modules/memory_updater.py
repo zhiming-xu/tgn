@@ -3,72 +3,72 @@ import torch
 
 
 class MemoryUpdater(nn.Module):
-  def update_memory(self, unique_node_ids, unique_messages, timestamps):
-    pass
+    def update_memory(self, unique_node_ids, unique_messages, timestamps):
+        pass
 
 
 class SequenceMemoryUpdater(MemoryUpdater):
-  def __init__(self, memory, message_dimension, memory_dimension, device):
-    super(SequenceMemoryUpdater, self).__init__()
-    self.memory = memory
-    self.layer_norm = torch.nn.LayerNorm(memory_dimension)
-    self.message_dimension = message_dimension
-    self.device = device
+    def __init__(self, memory, message_dimension, memory_dimension, device):
+        super(SequenceMemoryUpdater, self).__init__()
+        self.memory = memory
+        self.layer_norm = torch.nn.LayerNorm(memory_dimension)
+        self.message_dimension = message_dimension
+        self.device = device
 
-  # xzl) update memory *in place* ... called at the end of a batch, for positive nodes (src, dest) only
-  #     not to be used for prediction; but to persist the updated memory...
-  #     still use messages to update the memory (seem redudant comp)
-  def update_memory(self, unique_node_ids, unique_messages, timestamps):
-    if len(unique_node_ids) <= 0:
-      return
+    # xzl) update memory *in place* ... called at the end of a batch, for positive nodes (src, dest) only
+    #     not to be used for prediction; but to persist the updated memory...
+    #     still use messages to update the memory (seem redudant comp)
+    def update_memory(self, unique_node_ids, unique_messages, timestamps):
+        if len(unique_node_ids) <= 0:
+            return
 
-    assert (self.memory.get_last_update(unique_node_ids) <= timestamps).all().item(), "Trying to " \
-                                                                                     "update memory to time in the past"
+        assert (self.memory.get_last_update(unique_node_ids) <= timestamps).all().item(), "Trying to " \
+                                                                                         "update memory to time in the past"
 
-    memory = self.memory.get_memory(unique_node_ids)
-    self.memory.last_update[unique_node_ids] = timestamps
+        memory = self.memory.get_memory(unique_node_ids)
+        self.memory.last_update[unique_node_ids] = timestamps
 
-    updated_memory = self.memory_updater(unique_messages, memory)
+        updated_memory = self.memory_updater(unique_messages, memory)
 
-    self.memory.set_memory(unique_node_ids, updated_memory)
+        self.memory.set_memory(unique_node_ids, updated_memory)
 
-  # xzl) compute a new version of memory (w/ buffered msgs), to be called at the start of a batch.
-  # xzl) not updating the memory in place. stateless....
-  def get_updated_memory(self, unique_node_ids, unique_messages, timestamps):
-    if len(unique_node_ids) <= 0:
-      return self.memory.memory.data.clone(), self.memory.last_update.data.clone()
+    # xzl) compute a new version of memory (w/ buffered msgs), to be called at the start of a batch.
+    # xzl) not updating the memory in place. stateless....
+    def get_updated_memory(self, unique_node_ids, unique_messages, timestamps):
+        if len(unique_node_ids) <= 0:
+            return self.memory.memory.data.clone(), self.memory.last_update.data.clone()
 
-    assert (self.memory.get_last_update(unique_node_ids) <= timestamps).all().item(), "Trying to " \
-                                                                                     "update memory to time in the past"
+        assert (self.memory.get_last_update(unique_node_ids) <= timestamps).all().item(), "Trying to " \
+                                                                                         "update memory to time in the past"
 
-    # xzl) make a memory clone, update & return the clone. leave the "curernt" memory unchanged 
-    updated_memory = self.memory.memory.data.clone()
-    updated_memory[unique_node_ids] = self.memory_updater(unique_messages, updated_memory[unique_node_ids])
+        # xzl) make a memory clone, update & return the clone. leave the "curernt" memory unchanged 
+        updated_memory = self.memory.memory.data.clone()
+        updated_memory[unique_node_ids] = self.memory_updater(unique_messages, updated_memory[unique_node_ids])
 
-    updated_last_update = self.memory.last_update.data.clone()
-    updated_last_update[unique_node_ids] = timestamps
+        updated_last_update = self.memory.last_update.data.clone()
+        updated_last_update[unique_node_ids] = timestamps
 
-    return updated_memory, updated_last_update
+        return updated_memory, updated_last_update
 
 
 class GRUMemoryUpdater(SequenceMemoryUpdater):
-  def __init__(self, memory, message_dimension, memory_dimension, device):
-    super(GRUMemoryUpdater, self).__init__(memory, message_dimension, memory_dimension, device)
+    def __init__(self, memory, message_dimension, memory_dimension, device):
+        super(GRUMemoryUpdater, self).__init__(memory, message_dimension, memory_dimension, device)
 
-    self.memory_updater = nn.GRUCell(input_size=message_dimension,
-                                     hidden_size=memory_dimension)
+        self.memory_updater = nn.GRUCell(input_size=message_dimension,
+                                         hidden_size=memory_dimension)
 
 
 class RNNMemoryUpdater(SequenceMemoryUpdater):
-  def __init__(self, memory, message_dimension, memory_dimension, device):
-    super(RNNMemoryUpdater, self).__init__(memory, message_dimension, memory_dimension, device)
+    def __init__(self, memory, message_dimension, memory_dimension, device):
+        super(RNNMemoryUpdater, self).__init__(memory, message_dimension, memory_dimension, device)
 
-    self.memory_updater = nn.RNNCell(input_size=message_dimension,
-                                     hidden_size=memory_dimension)
+        self.memory_updater = nn.RNNCell(input_size=message_dimension,
+                                         hidden_size=memory_dimension)
 
 
 def get_memory_updater(module_type, memory, message_dimension, memory_dimension, device):
-  if module_type == "gru":
-    return GRUMemoryUpdater(memory, message_dimension, memory_dimension, device)
-  elif module_type == "rnn":
-    return RNNMemoryUpdater(memory, message_dimension, memory_dimension, device)
+    if module_type == "gru":
+        return GRUMemoryUpdater(memory, message_dimension, memory_dimension, device)
+    elif module_type == "rnn":
+        return RNNMemoryUpdater(memory, message_dimension, memory_dimension, device)
