@@ -117,9 +117,8 @@ class GraphEmbedding(EmbeddingModule):
         else:
 
             neighbors, edge_idxs, edge_times = self.neighbor_finder.get_temporal_neighbor(
-                source_nodes,
-              timestamps,
-              n_neighbors=n_neighbors)
+                source_nodes, timestamps, n_neighbors=n_neighbors
+            )
 
             # xzl: use same @edge_times for all ... no effect on accuracy...
             if self.use_fixed_times: 

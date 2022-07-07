@@ -1,4 +1,3 @@
-import json
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -81,11 +80,13 @@ def run(data_name, bipartite=True):
     np.save(OUT_FEAT, feat)
     np.save(OUT_NODE_FEAT, rand_feat)
 
-parser = argparse.ArgumentParser('Interface for TGN data preprocessing')
-parser.add_argument('--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
-                    default='wikipedia')
-parser.add_argument('--bipartite', action='store_true', help='Whether the graph is bipartite')
 
-args = parser.parse_args()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser('Interface for TGN data preprocessing')
+    parser.add_argument('--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
+                        default='wikipedia')
+    parser.add_argument('--bipartite', action='store_true', help='Whether the graph is bipartite')
 
-run(args.data, bipartite=args.bipartite)
+    args = parser.parse_args()
+
+    run(args.data, bipartite=args.bipartite)
